@@ -18,8 +18,6 @@ La pagina è pubblicata tramite **GitHub Pages** ed è accessibile qui:
 
 👉 https://ab4web.github.io/web_carbon_tax_analyzer/
 
-*(Sostituisci con il tuo URL reale)*
-
 ## 🔗 Risorse correlate
 Per approfondimenti, analisi e contenuti legati al progetto, puoi consultare anche:
 👉 **https://www.metallirari.com**  
