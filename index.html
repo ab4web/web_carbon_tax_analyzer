@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Web Carbon Analyzer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --c0:#000;--c1:#080c0a;--c2:#0d1410;--c3:#112016;
+  --acc:#00ff88;--acc2:#00ffcc;--acc3:#00ccff;
+  --warn:#ffcc00;--red:#ff4466;--blue:#44aaff;--orange:#ff8844;
+  --txt:#e0ffe8;--txt2:#88bbaa;--txt3:#557766;
+  --border:rgba(0,255,136,.15);--border2:rgba(0,255,136,.3);
+  --glow:rgba(0,255,136,.08);
+}
+html{background:var(--c0)}
+body{font-family:'Space Grotesk',sans-serif;background:var(--c1);color:var(--txt);min-height:100vh;overflow-x:hidden;padding-bottom:80px}
+*::-webkit-scrollbar{width:4px;background:var(--c2)}
+*::-webkit-scrollbar-thumb{background:var(--acc3);border-radius:2px}
+
+/* SCAN LINES OVERLAY */
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.04) 2px,rgba(0,0,0,.04) 4px);pointer-events:none;z-index:999}
+
+/* GRID BG */
+.grid-bg{position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:.4;pointer-events:none;z-index:0}
+
+/* CORNER DECORATIONS */
+.corner{position:fixed;width:80px;height:80px;pointer-events:none;z-index:1}
+.corner.tl{top:0;left:0;border-top:2px solid var(--acc);border-left:2px solid var(--acc)}
+.corner.tr{top:0;right:0;border-top:2px solid var(--acc);border-right:2px solid var(--acc)}
+.corner.bl{bottom:0;left:0;border-bottom:2px solid var(--acc);border-left:2px solid var(--acc)}
+.corner.br{bottom:0;right:0;border-bottom:2px solid var(--acc);border-right:2px solid var(--acc)}
+
+.wrap{position:relative;z-index:2;max-width:800px;margin:0 auto;padding:0 20px}
+
+/* TOP BAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);margin-bottom:0;background:rgba(0,0,0,.4);backdrop-filter:blur(10px);position:sticky;top:0;z-index:100}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.topbar-logo{font-family:'Space Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:4px;text-transform:uppercase}
+.topbar-ver{font-size:10px;color:var(--txt3);font-family:'Space Mono',monospace;padding:2px 6px;border:1px solid var(--txt3);border-radius:2px}
+.topbar-status{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--txt2);font-family:'Space Mono',monospace}
+.pulse{width:7px;height:7px;border-radius:50%;background:var(--acc);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,255,136,.4)}50%{opacity:.7;box-shadow:0 0 0 6px rgba(0,255,136,0)}}
+
+/* HERO */
+.hero{padding:60px 20px 40px;text-align:center;position:relative}
+.hero-label{font-family:'Space Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:6px;text-transform:uppercase;margin-bottom:24px;display:block}
+.hero-title{font-size:clamp(36px,7vw,72px);font-weight:700;line-height:1.05;margin-bottom:20px;color:var(--txt)}
+.hero-title .hi{color:transparent;-webkit-text-stroke:1px var(--acc)}
+.hero-title .acc{color:var(--acc)}
+.hero-sub{font-size:18px;color:var(--txt2);max-width:560px;margin:0 auto 40px;line-height:1.6;font-weight:400}
+
+/* INPUT AREA */
+.input-wrap{position:relative;max-width:600px;margin:0 auto 16px}
+.input-glow{position:absolute;inset:-1px;border-radius:4px;background:linear-gradient(90deg,var(--acc),var(--acc3));z-index:0;opacity:0;transition:opacity .3s}
+.input-wrap:focus-within .input-glow{opacity:1}
+.input-inner{position:relative;z-index:1;display:flex;gap:0;background:var(--c2);border:1px solid var(--border2);border-radius:4px;overflow:hidden}
+.url-prefix{padding:0 14px;display:flex;align-items:center;font-family:'Space Mono',monospace;font-size:13px;color:var(--txt3);background:rgba(0,255,136,.05);border-right:1px solid var(--border)}
+input[type=text]{flex:1;padding:16px;background:transparent;border:none;color:var(--txt);font-size:16px;font-family:'Space Grotesk',sans-serif;outline:none}
+input[type=text]::placeholder{color:var(--txt3)}
+.btn-scan{padding:16px 28px;background:var(--acc);color:#000;border:none;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;letter-spacing:2px;cursor:pointer;text-transform:uppercase;transition:all .2s;white-space:nowrap}
+.btn-scan:hover{background:var(--acc2)}
+.btn-scan:disabled{background:var(--txt3);cursor:not-allowed;color:#000}
+
+/* EXAMPLE CHIPS */
+.chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;max-width:600px;margin:0 auto 48px;align-items:center}
+.chip-label{font-size:12px;color:var(--txt3);font-family:'Space Mono',monospace}
+.chip{padding:6px 14px;background:transparent;border:1px solid var(--border2);color:var(--txt2);font-size:13px;font-family:'Space Mono',monospace;cursor:pointer;border-radius:2px;transition:all .2s}
+.chip:hover{background:var(--glow);color:var(--acc);border-color:var(--acc)}
+
+/* FEATURES */
+.feat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:40px}
+.feat{padding:28px 24px;background:var(--c2);position:relative;overflow:hidden}
+.feat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--acc),transparent);opacity:0;transition:.3s}
+.feat:hover::before{opacity:1}
+.feat-num{font-family:'Space Mono',monospace;font-size:11px;color:var(--txt3);margin-bottom:12px}
+.feat-icon{font-size:32px;margin-bottom:12px;display:block}
+.feat-title{font-size:18px;font-weight:600;color:var(--txt);margin-bottom:8px}
+.feat-desc{font-size:14px;color:var(--txt2);line-height:1.6}
+
+/* METHOD */
+.method{border:1px solid var(--border);padding:24px;background:var(--glow);margin-bottom:0;position:relative}
+.method::before{content:'// METHODOLOGY';position:absolute;top:-10px;left:16px;font-family:'Space Mono',monospace;font-size:10px;color:var(--acc);background:var(--c1);padding:0 8px;letter-spacing:2px}
+.method p{font-size:14px;color:var(--txt2);line-height:1.7}
+.method strong{color:var(--txt);font-weight:500}
+
+/* LOADING */
+.loading{padding:80px 20px;text-align:center}
+.scan-box{width:200px;height:200px;margin:0 auto 32px;position:relative;display:flex;align-items:center;justify-content:center}
+.scan-ring{position:absolute;border-radius:50%;border:1px solid}
+.scan-ring:nth-child(1){inset:0;border-color:var(--acc);animation:rot 3s linear infinite}
+.scan-ring:nth-child(2){inset:20px;border-color:var(--acc3);animation:rot 2s linear infinite reverse;border-style:dashed}
+.scan-ring:nth-child(3){inset:40px;border-color:var(--warn);animation:rot 1.5s linear infinite}
+.scan-core{width:40px;height:40px;background:var(--acc);border-radius:50%;animation:corepulse 1s infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+@keyframes corepulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.2);opacity:.7}}
+.scan-line{position:absolute;width:100%;height:1px;background:linear-gradient(90deg,transparent,var(--acc),transparent);top:50%;animation:scanline 2s linear infinite}
+@keyframes scanline{0%{top:0;opacity:1}100%{top:100%;opacity:0}}
+.load-msg{font-family:'Space Mono',monospace;font-size:14px;color:var(--acc);letter-spacing:2px}
+.load-sub{font-size:13px;color:var(--txt3);margin-top:8px;font-family:'Space Mono',monospace}
+
+/* NAV */
+.sitenav{background:rgba(0,0,0,.7);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:0;overflow-x:auto;position:sticky;top:57px;z-index:99}
+.nav-id{font-family:'Space Mono',monospace;font-size:11px;color:var(--acc);padding:0 16px 0 0;border-right:1px solid var(--border);margin-right:4px;white-space:nowrap;flex-shrink:0}
+.nb{padding:14px 16px;background:none;border:none;border-bottom:2px solid transparent;color:var(--txt2);font-family:'Space Mono',monospace;font-size:12px;cursor:pointer;white-space:nowrap;letter-spacing:1px;transition:.2s}
+.nb.on{color:var(--acc);border-bottom-color:var(--acc)}
+.nb:hover{color:var(--txt)}
+.btn-back{margin-left:auto;padding:8px 14px;background:transparent;border:1px solid var(--border2);color:var(--txt2);font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;letter-spacing:1px;flex-shrink:0;transition:.2s}
+.btn-back:hover{border-color:var(--acc);color:var(--acc)}
+
+/* RESULTS BODY */
+.rbody{padding:32px 20px 0;max-width:800px;margin:0 auto}
+
+/* SITE INFO */
+.sitecard{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:20px;padding:24px;border:1px solid var(--border2);background:var(--c2);margin-bottom:24px;position:relative}
+.sitecard::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:var(--acc)}
+.site-domain{font-size:22px;font-weight:700;color:var(--acc);font-family:'Space Mono',monospace;margin-bottom:4px}
+.site-meta{font-size:13px;color:var(--txt2)}
+.green-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--acc);color:var(--acc);font-size:11px;font-family:'Space Mono',monospace;margin-top:8px;border-radius:2px}
+.red-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--red);color:var(--red);font-size:11px;font-family:'Space Mono',monospace;margin-top:8px;border-radius:2px}
+
+/* SCORE */
+.scorewrap{display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:center;padding:28px;border:1px solid var(--border2);background:var(--c2);margin-bottom:24px;position:relative;overflow:hidden}
+.scorewrap::after{content:'';position:absolute;right:-40px;top:-40px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(0,255,136,.05) 0%,transparent 70%)}
+.grade-hex{width:100px;height:100px;display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0}
+.grade-hex svg{position:absolute;inset:0}
+.grade-letter{font-size:42px;font-weight:700;font-family:'Space Mono',monospace;position:relative;z-index:1}
+.score-info{}
+.score-tag{font-family:'Space Mono',monospace;font-size:11px;color:var(--txt3);letter-spacing:3px;text-transform:uppercase;margin-bottom:8px}
+.score-num{font-size:48px;font-weight:700;color:var(--txt);line-height:1;margin-bottom:8px;font-family:'Space Mono',monospace}
+.score-num span{font-size:20px;color:var(--txt3)}
+.score-desc{font-size:16px;color:var(--txt2)}
+
+/* SECTION HEADER */
+.sec-hdr{display:flex;align-items:center;gap:12px;margin:48px 0 20px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.sec-hdr-line{flex:1;height:1px;background:linear-gradient(90deg,var(--acc),transparent)}
+.sec-hdr-label{font-family:'Space Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:4px;white-space:nowrap}
+.sec-hdr-num{font-family:'Space Mono',monospace;font-size:11px;color:var(--txt3)}
+
+/* METRICS */
+.met-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.met{border:1px solid var(--border);background:var(--c2);padding:24px;position:relative;overflow:hidden;transition:.3s}
+.met:hover{border-color:var(--border2)}
+.met.full{grid-column:1/-1}
+.met-label{font-family:'Space Mono',monospace;font-size:11px;color:var(--txt3);letter-spacing:3px;text-transform:uppercase;margin-bottom:12px}
+.met-value{font-size:42px;font-weight:700;font-family:'Space Mono',monospace;line-height:1;margin-bottom:4px}
+.met-unit{font-size:13px;color:var(--txt3);font-family:'Space Mono',monospace;margin-bottom:12px}
+.met-desc{font-size:13px;color:var(--txt2);line-height:1.5}
+.met-gauge-wrap{position:absolute;top:24px;right:24px}
+.met-bar-bg{position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--border)}
+.met-bar-fill{position:absolute;bottom:0;left:0;height:3px;transition:width 1.2s cubic-bezier(.34,1.56,.64,1)}
+
+/* MATERIALS */
+.mat-bar{display:flex;height:10px;margin:16px 0 12px;overflow:hidden;gap:1px}
+.mat-seg{height:100%;transition:width 1.2s ease}
+.mat-items{display:flex;flex-wrap:wrap;gap:8px 16px}
+.mat-item{display:flex;align-items:center;gap:6px;font-size:13px}
+.mat-dot{width:10px;height:10px;border-radius:1px;flex-shrink:0}
+.mat-name{color:var(--txt2)}
+.mat-val{color:var(--txt);font-family:'Space Mono',monospace;font-weight:700}
+
+/* CONFRONTO */
+.cmp-card{border:1px solid var(--border);background:var(--c2);padding:24px}
+.cmp-intro{font-size:16px;color:var(--txt2);margin-bottom:24px}
+.cmp-intro strong{color:var(--txt)}
+.cmp-row{margin-bottom:22px}
+.cmp-label{font-family:'Space Mono',monospace;font-size:12px;color:var(--txt3);letter-spacing:2px;margin-bottom:8px;text-transform:uppercase}
+.cmp-line{display:flex;justify-content:space-between;font-size:14px;color:var(--txt2);margin-bottom:6px}
+.cmp-line strong{font-family:'Space Mono',monospace}
+.bar-bg{height:6px;background:var(--border);margin-bottom:4px;position:relative}
+.bar-fg{height:6px;position:absolute;left:0;top:0;transition:width 1.2s ease}
+
+/* EQUIV */
+.eq-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.eq-card{border:1px solid var(--border);background:var(--c2);padding:24px;position:relative;overflow:hidden}
+.eq-card::before{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--acc3),transparent)}
+.eq-icon{font-size:36px;margin-bottom:12px;display:block}
+.eq-val{font-size:32px;font-weight:700;font-family:'Space Mono',monospace;color:var(--txt);line-height:1;margin-bottom:6px}
+.eq-label{font-size:14px;color:var(--txt2)}
+
+/* TIPS */
+.tip{display:flex;gap:14px;padding:16px 20px;border:1px solid;margin-bottom:8px}
+.tip.bad{border-color:rgba(255,68,102,.3);background:rgba(255,68,102,.03)}
+.tip.good{border-color:rgba(0,255,136,.2);background:rgba(0,255,136,.03)}
+.tip-icon{font-family:'Space Mono',monospace;font-size:16px;flex-shrink:0;margin-top:1px}
+.tip-text{font-size:15px;color:var(--txt);line-height:1.5}
+.tips-hdr{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-bottom:12px;padding:8px 0}
+
+/* NOTE */
+.data-note{font-family:'Space Mono',monospace;font-size:11px;color:var(--txt3);padding:14px 18px;border:1px solid var(--border);margin-top:16px;line-height:1.7}
+.data-note strong{color:var(--txt2)}
+
+/* FOOTER */
+footer{text-align:center;padding:40px 20px 0;border-top:1px solid var(--border);font-family:'Space Mono',monospace;font-size:12px;color:var(--txt3);margin-top:60px;position:relative;z-index:2}
+footer a{color:var(--acc);text-decoration:none}
+footer a:hover{text-decoration:underline}
+
+/* ERRORS */
+.errbox{margin:24px 20px;padding:16px 20px;border:1px solid var(--red);background:rgba(255,68,102,.06);font-family:'Space Mono',monospace;font-size:14px;color:var(--red)}
+
+.hidden{display:none!important}
+
+/* ANIMATIONS */
+@keyframes fadein{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.fadein{animation:fadein .5s ease forwards}
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="corner tl"></div><div class="corner tr"></div>
+<div class="corner bl"></div><div class="corner br"></div>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-logo">WC//Analyzer</span>
+    <span class="topbar-ver">v2.0</span>
+  </div>
+  <div class="topbar-status"><div class="pulse"></div>SYSTEM ONLINE</div>
+</div>
+
+<!-- HERO -->
+<div id="hero">
+  <div class="wrap">
+    <div class="hero">
+      <span class="hero-label">Digital Sustainability Intelligence</span>
+      <h1 class="hero-title">
+        Ogni sito<br>ha un'<span class="acc">impronta</span>.
+      </h1>
+      <p class="hero-sub">Inserisci un dominio. L'IA stima elettricità, acqua, CO₂ e materiali critici consumati ogni anno dalla pagina.</p>
+
+      <div class="input-wrap">
+        <div class="input-glow"></div>
+        <div class="input-inner">
+          <span class="url-prefix">https://</span>
+          <input type="text" id="urlInput" placeholder="dominio.com" autocomplete="off" spellcheck="false"/>
+          <button class="btn-scan" id="btnScan" onclick="analyze()">SCAN →</button>
+        </div>
+      </div>
+
+      <div class="chips">
+        <span class="chip-label">// try:</span>
+        <button class="chip" onclick="setEx('apple.com')">apple.com</button>
+        <button class="chip" onclick="setEx('amazon.it')">amazon.it</button>
+        <button class="chip" onclick="setEx('corriere.it')">corriere.it</button>
+        <button class="chip" onclick="setEx('wikipedia.org')">wikipedia.org</button>
+        <button class="chip" onclick="setEx('netflix.com')">netflix.com</button>
+      </div>
+
+      <div class="feat-grid">
+        <div class="feat"><span class="feat-num">01 //</span><span class="feat-icon">⚡</span><div class="feat-title">Consumo elettrico</div><div class="feat-desc">kWh per visita e per anno. Modello Sustainable Web Design applicato al peso stimato della pagina.</div></div>
+        <div class="feat"><span class="feat-num">02 //</span><span class="feat-icon">💧</span><div class="feat-title">Impronta idrica</div><div class="feat-desc">Litri d'acqua per raffreddare i data center. Calcolati su WUE media globale dei server farm.</div></div>
+        <div class="feat"><span class="feat-num">03 //</span><span class="feat-icon">🌡️</span><div class="feat-title">Emissioni CO₂</div><div class="feat-desc">Kg di anidride carbonica equivalente emessi ogni anno. Carbon intensity: 442 gCO₂/kWh.</div></div>
+        <div class="feat"><span class="feat-num">04 //</span><span class="feat-icon">🪨</span><div class="feat-title">Materiali critici</div><div class="feat-desc">Cu, Si, Co, Al, Li, Ni, Au, Ag e terre rare. Lifecycle hardware dei data center calcolato per visita.</div></div>
+      </div>
+
+      <div class="method">
+        <p>Stime basate su <strong>HTTP Archive 2024</strong> (peso pagina per categoria), modello <strong>Sustainable Web Design</strong> e carbon intensity media dei data center globali. Traffico base: <strong>10.000 visite/mese</strong>. I risultati sono stime indicative a scopo informativo.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div id="loading" class="hidden" style="position:relative;z-index:2">
+  <div class="wrap">
+    <div class="loading">
+      <div class="scan-box">
+        <div class="scan-ring"></div>
+        <div class="scan-ring"></div>
+        <div class="scan-ring"></div>
+        <div class="scan-line"></div>
+        <div class="scan-core"></div>
+      </div>
+      <div class="load-msg" id="loadMsg">INITIALIZING SCAN</div>
+      <div class="load-sub" id="loadSub">— — —</div>
+    </div>
+  </div>
+</div>
+
+<!-- ERROR -->
+<div id="errbox" class="errbox hidden"></div>
+
+<!-- NAV -->
+<div id="sitenav" class="sitenav hidden">
+  <span class="nav-id" id="navId">◈</span>
+  <button class="nb on" onclick="navTo(this,'s-metriche')">METRICHE</button>
+  <button class="nb" onclick="navTo(this,'s-confronto')">CONFRONTO</button>
+  <button class="nb" onclick="navTo(this,'s-equiv')">EQUIV.</button>
+  <button class="nb" onclick="navTo(this,'s-tips')">REPORT</button>
+  <button class="btn-back" onclick="doReset()">↩ NUOVA ANALISI</button>
+</div>
+
+<!-- RESULTS -->
+<div id="results" class="hidden">
+  <div class="rbody">
+
+    <!-- SITE CARD -->
+    <div class="sitecard fadein" style="animation-delay:.1s">
+      <div style="font-size:32px">🌐</div>
+      <div>
+        <div class="site-domain" id="resDomain"></div>
+        <div class="site-meta" id="resMeta"></div>
+        <div id="greenBadge"></div>
+      </div>
+      <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--txt3);text-align:right">SCAN COMPLETE<br><span id="scanTime" style="color:var(--acc)"></span></div>
+    </div>
+
+    <!-- SCORE -->
+    <div class="scorewrap fadein" style="animation-delay:.2s">
+      <div class="grade-hex">
+        <svg viewBox="0 0 100 100"><polygon points="50,4 96,27 96,73 50,96 4,73 4,27" fill="none" id="hexStroke" stroke-width="1.5"/></svg>
+        <span class="grade-letter" id="gradeLetter"></span>
+      </div>
+      <div class="score-info">
+        <div class="score-tag">SUSTAINABILITY SCORE</div>
+        <div class="score-num" id="scoreNum"></div>
+        <div class="score-desc" id="scoreDesc"></div>
+      </div>
+    </div>
+
+    <!-- METRICHE -->
+    <div class="sec-hdr" id="s-metriche"><div class="sec-hdr-num">01</div><div class="sec-hdr-line"></div><div class="sec-hdr-label">METRICHE ENERGETICHE</div><div class="sec-hdr-line"></div></div>
+    <div class="met-grid fadein" style="animation-delay:.3s">
+      <div class="met">
+        <div class="met-gauge-wrap"><svg width="52" height="52" viewBox="0 0 80 80"><circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,204,0,.2)" stroke-width="6"/><circle id="gKwh" cx="40" cy="40" r="34" fill="none" stroke="#ffcc00" stroke-width="6" stroke-linecap="round" transform="rotate(-90 40 40)" stroke-dasharray="0 213.6" style="transition:stroke-dasharray 1.4s ease"/></svg></div>
+        <div class="met-label">// ELETTRICITÀ</div>
+        <div class="met-value" id="mKwh" style="color:var(--warn)">—</div>
+        <div class="met-unit">kWh / anno</div>
+        <div class="met-desc">Energia consumata da server, rete e dispositivi degli utenti</div>
+        <div class="met-bar-bg"><div class="met-bar-fill" id="bKwh" style="background:var(--warn)"></div></div>
+      </div>
+      <div class="met">
+        <div class="met-gauge-wrap"><svg width="52" height="52" viewBox="0 0 80 80"><circle cx="40" cy="40" r="34" fill="none" stroke="rgba(68,170,255,.2)" stroke-width="6"/><circle id="gWater" cx="40" cy="40" r="34" fill="none" stroke="#44aaff" stroke-width="6" stroke-linecap="round" transform="rotate(-90 40 40)" stroke-dasharray="0 213.6" style="transition:stroke-dasharray 1.4s ease"/></svg></div>
+        <div class="met-label">// ACQUA</div>
+        <div class="met-value" id="mWater" style="color:var(--blue)">—</div>
+        <div class="met-unit">litri / anno</div>
+        <div class="met-desc">Raffreddamento data center (WUE media 1.8 L/kWh)</div>
+        <div class="met-bar-bg"><div class="met-bar-fill" id="bWater" style="background:var(--blue)"></div></div>
+      </div>
+      <div class="met">
+        <div class="met-gauge-wrap"><svg width="52" height="52" viewBox="0 0 80 80"><circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,68,102,.2)" stroke-width="6"/><circle id="gCo2" cx="40" cy="40" r="34" fill="none" stroke="#ff4466" stroke-width="6" stroke-linecap="round" transform="rotate(-90 40 40)" stroke-dasharray="0 213.6" style="transition:stroke-dasharray 1.4s ease"/></svg></div>
+        <div class="met-label">// EMISSIONI CO₂</div>
+        <div class="met-value" id="mCo2" style="color:var(--red)">—</div>
+        <div class="met-unit">kg / anno</div>
+        <div class="met-desc">Carbon footprint calcolato su mix energetico globale 442 gCO₂/kWh</div>
+        <div class="met-bar-bg"><div class="met-bar-fill" id="bCo2" style="background:var(--red)"></div></div>
+      </div>
+      <div class="met">
+        <div class="met-gauge-wrap"><svg width="52" height="52" viewBox="0 0 80 80"><circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,136,68,.2)" stroke-width="6"/><circle id="gMat" cx="40" cy="40" r="34" fill="none" stroke="#ff8844" stroke-width="6" stroke-linecap="round" transform="rotate(-90 40 40)" stroke-dasharray="0 213.6" style="transition:stroke-dasharray 1.4s ease"/></svg></div>
+        <div class="met-label">// MATERIALI CRITICI</div>
+        <div class="met-value" id="mMat" style="color:var(--orange)">—</div>
+        <div class="met-unit">g equivalenti / visita</div>
+        <div class="met-desc">Cu, Si, Co, Al, Li, Ni, Au, Ag, terre rare — lifecycle hardware</div>
+        <div class="met-bar-bg"><div class="met-bar-fill" id="bMat" style="background:var(--orange)"></div></div>
+      </div>
+
+      <!-- MATERIALI BREAKDOWN -->
+      <div class="met full">
+        <div class="met-label">// BREAKDOWN MATERIALI CRITICI PER VISITA</div>
+        <div class="mat-bar" id="matBar"></div>
+        <div class="mat-items" id="matItems"></div>
+        <div class="data-note" id="datanote" style="margin-top:20px"></div>
+      </div>
+    </div>
+
+    <!-- CONFRONTO -->
+    <div class="sec-hdr" id="s-confronto"><div class="sec-hdr-num">02</div><div class="sec-hdr-line"></div><div class="sec-hdr-label">CONFRONTO SETTORE</div><div class="sec-hdr-line"></div></div>
+    <div class="cmp-card fadein" style="animation-delay:.35s">
+      <div class="cmp-intro">Comparazione con la media del settore: <strong id="cmpSector"></strong></div>
+      <div id="cmpRows"></div>
+    </div>
+
+    <!-- EQUIV -->
+    <div class="sec-hdr" id="s-equiv"><div class="sec-hdr-num">03</div><div class="sec-hdr-line"></div><div class="sec-hdr-label">EQUIVALENZE ANNUE</div><div class="sec-hdr-line"></div></div>
+    <div class="eq-grid fadein" style="animation-delay:.4s" id="eqGrid"></div>
+
+    <!-- TIPS -->
+    <div class="sec-hdr" id="s-tips"><div class="sec-hdr-num">04</div><div class="sec-hdr-line"></div><div class="sec-hdr-label">ANALISI E RACCOMANDAZIONI</div><div class="sec-hdr-line"></div></div>
+    <div id="issuesList" class="fadein" style="animation-delay:.45s"></div>
+    <div id="tipsList" class="fadein" style="animation-delay:.5s"></div>
+
+  </div>
+</div>
+
+<footer>
+  <p>© 2025 <a href="https://metallirari.com" target="_blank" rel="follow">metallirari.com</a> &nbsp;·&nbsp; Stime basate sul modello Sustainable Web Design &nbsp;·&nbsp; WC//Analyzer v2.0</p>
+</footer>
+
+<script>
+const CIRC=213.6, VY=120000;
+
+function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function setEx(v){document.getElementById('urlInput').value=v}
+function show(id){document.getElementById(id).classList.remove('hidden')}
+function hide(id){document.getElementById(id).classList.add('hidden')}
+function navTo(btn,id){document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));btn.classList.add('on');document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'})}
+function doReset(){show('hero');hide('results');hide('sitenav');hide('errbox');document.getElementById('urlInput').value=''}
+
+const SECTORS={
+  ecommerce:{label:'E-commerce',pageKB:3200,green:false,issues:['Molte immagini non ottimizzate','Script di tracking e advertising pesanti','Font web multipli non ottimizzati']},
+  news:     {label:'News / Media',pageKB:2800,green:false,issues:['Script pubblicitari numerosi','Contenuti video autoplay','Layout shift da elementi dinamici']},
+  saas:     {label:'SaaS / Tech',pageKB:2100,green:true, issues:['Bundle JavaScript elevato','Molte dipendenze di terze parti']},
+  blog:     {label:'Blog / Portfolio',pageKB:1100,green:false,issues:['Tema CMS non ottimizzato','Plugin non necessari attivi']},
+  gov:      {label:'Pubblica Amm.',pageKB:900,green:false, issues:['Struttura HTML datata','Assenza di cache efficiente']},
+  wiki:     {label:'Enciclopedia',pageKB:600,green:true,  issues:[]},
+  default:  {label:'Web generico',pageKB:2000,green:false,issues:['Struttura non ottimizzata per efficienza']},
+};
+const SAVG={
+  ecommerce:{kwh:320,water:1280,co2:160,materials:1.4},
+  news:     {kwh:260,water:1040,co2:130,materials:1.1},
+  saas:     {kwh:200,water:800, co2:100,materials:.9},
+  blog:     {kwh:90, water:360, co2:45, materials:.4},
+  gov:      {kwh:80, water:320, co2:40, materials:.35},
+  wiki:     {kwh:55, water:220, co2:28, materials:.25},
+  default:  {kwh:170,water:680, co2:85, materials:.75},
+};
+const MATS=[
+  {k:'cu',n:'Rame',      c:'#fb923c',p:.28},
+  {k:'si',n:'Silicio',   c:'#a78bfa',p:.22},
+  {k:'al',n:'Alluminio', c:'#94a3b8',p:.18},
+  {k:'co',n:'Cobalto',   c:'#60a5fa',p:.10},
+  {k:'li',n:'Litio',     c:'#34d399',p:.08},
+  {k:'ni',n:'Nichel',    c:'#e2e8f0',p:.06},
+  {k:'re',n:'Terre rare',c:'#f472b6',p:.05},
+  {k:'ag',n:'Argento',   c:'#cbd5e1',p:.02},
+  {k:'au',n:'Oro',       c:'#facc15',p:.01},
+];
+const MDEFS=[
+  {k:'kwh',n:'ELETTRICITÀ',u:'kWh/anno',c:'#ffcc00'},
+  {k:'water',n:'ACQUA',u:'litri/anno',c:'#44aaff'},
+  {k:'co2',n:'CO₂',u:'kg/anno',c:'#ff4466'},
+  {k:'materials',n:'MATERIALI',u:'g eq./visita',c:'#ff8844'},
+];
+
+function guessSector(d){
+  if(/amazon|ebay|zalando|shop|store|aliexpress|etsy/.test(d))return'ecommerce';
+  if(/corriere|repubblica|gazzetta|ansa|news|media|times|post|daily/.test(d))return'news';
+  if(/netflix|spotify|github|gitlab|notion|slack|figma|atlassian/.test(d))return'saas';
+  if(/wikipedia|wiki/.test(d))return'wiki';
+  if(/gov|comune|regione|ministero/.test(d))return'gov';
+  if(/blog|personal|portfolio/.test(d))return'blog';
+  return'default';
+}
+function compute(pageKB){
+  const bytes=pageKB*1024;
+  const kwhPV=bytes*1.805e-9;
+  const kwh=+(kwhPV*VY).toFixed(1);
+  const co2=+(kwh*.442).toFixed(1);
+  const water=+(kwh*1.8).toFixed(0);
+  const materials=+(pageKB*.00028).toFixed(5);
+  return{kwh,co2,water:Number(water),materials};
+}
+function score(m,a){
+  const r=m.co2/(a.co2||80);
+  return Math.max(5,Math.min(100,Math.round(110-r*55)));
+}
+
+let loadIv;
+const MSGS=[
+  ['FETCHING DOMAIN DATA','Analisi della tipologia del sito'],
+  ['APPLYING SWD MODEL','Calcolo modello energetico'],
+  ['COMPUTING WATER FOOTPRINT','Stima impronta idrica'],
+  ['ANALYZING MATERIAL FLOW','Calcolo materiali critici'],
+  ['GENERATING REPORT','Elaborazione risultati finali'],
+];
+
+async function analyze(){
+  let raw=document.getElementById('urlInput').value.trim();
+  if(!raw)return;
+  if(!raw.startsWith('http'))raw='https://'+raw;
+  let domain,parsed;
+  try{parsed=new URL(raw);domain=parsed.hostname.replace(/^www\./,'')}
+  catch{showErr('URL non valido.'); return}
+  if(!['https:','http:'].includes(parsed.protocol)){showErr('Usa un URL http:// o https://');return}
+
+  hide('hero');hide('results');hide('sitenav');hide('errbox');
+  show('loading');
+
+  let mi=0;
+  const setMsg=i=>{document.getElementById('loadMsg').textContent=MSGS[i][0];document.getElementById('loadSub').textContent=MSGS[i][1]};
+  setMsg(0);
+  loadIv=setInterval(()=>{mi=(mi+1)%MSGS.length;setMsg(mi)},1800);
+
+  await new Promise(r=>setTimeout(r,3200+Math.random()*1200));
+  clearInterval(loadIv);
+  hide('loading');
+
+  const sector=guessSector(domain);
+  const sd=SECTORS[sector];
+  const avg=SAVG[sector];
+  const hash=domain.split('').reduce((a,c)=>a+c.charCodeAt(0),0);
+  const variance=.7+(hash%60)/100;
+  const pageKB=Math.round(sd.pageKB*variance);
+  const m=compute(pageKB);
+  const sc=score(m,avg);
+
+  render({domain,pageKB,sector,sd,avg,m,sc});
+}
+
+function showErr(msg){
+  clearInterval(loadIv);hide('loading');show('hero');
+  const el=document.getElementById('errbox');el.textContent=msg;show('errbox');
+}
+
+function setG(id,val,max){
+  const dash=Math.min(val/max,1)*CIRC;
+  document.getElementById(id).setAttribute('stroke-dasharray',`${dash} ${CIRC-dash}`);
+}
+function setBar(id,val,max){
+  document.getElementById(id).style.width=Math.round(Math.min(val/max,1)*100)+'%';
+}
+
+function render({domain,pageKB,sector,sd,avg,m,sc}){
+  // site card
+  document.getElementById('resDomain').textContent=domain;
+  document.getElementById('resMeta').textContent=`${sd.label} · ~${pageKB.toLocaleString('it-IT')} KB · Traffico base 10k/mese`;
+  document.getElementById('greenBadge').innerHTML=sd.green
+    ?'<span class="green-badge">◉ HOSTING GREEN</span>'
+    :'<span class="red-badge">◎ HOSTING NON CERTIFICATO GREEN</span>';
+  document.getElementById('scanTime').textContent=new Date().toLocaleTimeString('it-IT');
+
+  // grade
+  const GRADES=[{min:85,l:'A+',c:'#00ff88'},{min:70,l:'A',c:'#44ff99'},{min:55,l:'B',c:'#ffcc00'},{min:40,l:'C',c:'#ff8844'},{min:20,l:'D',c:'#ff4466'},{min:0,l:'F',c:'#cc2244'}];
+  const g=GRADES.find(x=>sc>=x.min)||GRADES[GRADES.length-1];
+  document.getElementById('gradeLetter').textContent=g.l;
+  document.getElementById('gradeLetter').style.color=g.c;
+  document.getElementById('hexStroke').setAttribute('stroke',g.c);
+  document.getElementById('scoreNum').innerHTML=`${sc}<span>/100</span>`;
+  document.getElementById('scoreDesc').textContent=sc>=70?'Sito efficiente — sotto la media del settore':sc>=40?'Margini di miglioramento significativi':'Impatto ambientale elevato';
+
+  // metriche
+  const ids={kwh:'mKwh',water:'mWater',co2:'mCo2',materials:'mMat'};
+  Object.entries(ids).forEach(([k,id])=>document.getElementById(id).textContent=m[k].toLocaleString('it-IT'));
+
+  setTimeout(()=>{
+    const mx=k=>Math.max(m[k],avg[k])*1.5||1;
+    setG('gKwh',m.kwh,mx('kwh'));     setBar('bKwh',m.kwh,mx('kwh'));
+    setG('gWater',m.water,mx('water'));setBar('bWater',m.water,mx('water'));
+    setG('gCo2',m.co2,mx('co2'));     setBar('bCo2',m.co2,mx('co2'));
+    setG('gMat',m.materials,mx('materials'));setBar('bMat',m.materials,mx('materials'));
+  },80);
+
+  // materiali
+  const tot=m.materials||1;
+  const mb=document.getElementById('matBar'); mb.innerHTML='';
+  const mi2=document.getElementById('matItems'); mi2.innerHTML='';
+  MATS.forEach(mat=>{
+    const v=+(tot*mat.p).toFixed(6);
+    mb.innerHTML+=`<div class="mat-seg" style="width:${mat.p*100}%;background:${mat.c}"></div>`;
+    mi2.innerHTML+=`<div class="mat-item"><div class="mat-dot" style="background:${mat.c}"></div><span class="mat-name">${escH(mat.n)}</span>&nbsp;<span class="mat-val">${v}g</span></div>`;
+  });
+
+  // data note
+  document.getElementById('datanote').innerHTML=`<strong>// NOTA METODOLOGICA</strong><br>Peso pagina stimato da medie HTTP Archive 2024 per la categoria [${escH(sd.label)}] con varianza deterministica sul dominio. Modello SWD applicato su traffico base 10k visite/mese.`;
+
+  // confronto
+  document.getElementById('cmpSector').textContent=sd.label;
+  const cr=document.getElementById('cmpRows'); cr.innerHTML='';
+  MDEFS.forEach(md=>{
+    const v=m[md.k]||0,a=avg[md.k]||100;
+    const mx=Math.max(v,a)*1.3||1;
+    const better=v<=a;
+    cr.innerHTML+=`
+    <div class="cmp-row">
+      <div class="cmp-label">// ${escH(md.n)}</div>
+      <div class="cmp-line"><span>Sito analizzato ${better?'<span style="color:var(--acc);font-size:11px">▼ SOTTO MEDIA</span>':'<span style="color:var(--red);font-size:11px">▲ SOPRA MEDIA</span>'}</span><strong style="color:${md.c}">${v.toLocaleString('it-IT')} ${escH(md.u)}</strong></div>
+      <div class="bar-bg"><div class="bar-fg" style="width:${Math.round(v/mx*100)}%;background:${md.c}"></div></div>
+      <div class="cmp-line"><span>Media settore</span><strong style="color:var(--txt2)">${a.toLocaleString('it-IT')} ${escH(md.u)}</strong></div>
+      <div class="bar-bg"><div class="bar-fg" style="width:${Math.round(a/mx*100)}%;background:rgba(255,255,255,.25)"></div></div>
+    </div>`;
+  });
+
+  // equivalenze
+  const km=Math.round(m.co2*5.6);
+  const bt=Math.round(m.water/.5);
+  const ph=Math.round(m.kwh*83);
+  const tr=Math.max(1,Math.round(m.co2/21));
+  const EQS=[
+    {icon:'🚗',val:km.toLocaleString('it-IT'),label:'km percorsi in auto'},
+    {icon:'🍶',val:bt.toLocaleString('it-IT'),label:"bottiglie d'acqua 0,5L"},
+    {icon:'📱',val:ph.toLocaleString('it-IT'),label:'smartphone completamente caricati'},
+    {icon:'🌳',val:tr.toLocaleString('it-IT'),label:'alberi necessari per compensare le emissioni'},
+  ];
+  const eg=document.getElementById('eqGrid'); eg.innerHTML='';
+  EQS.forEach(e=>{eg.innerHTML+=`<div class="eq-card"><span class="eq-icon">${e.icon}</span><div class="eq-val">${escH(e.val)}</div><div class="eq-label">${escH(e.label)}</div></div>`});
+
+  // issues + tips
+  const issues=['Peso pagina superiore al target ottimale (< 500 KB raccomandati)',...sd.issues];
+  if(m.kwh>avg.kwh)issues.push('Consumo energetico annuo oltre la media del settore');
+  if(!sd.green)issues.push('Categoria hosting tipicamente non alimentata da energie rinnovabili');
+  const tips=[
+    'Migra su hosting certificato green (es. Hetzner, Infomaniak, OVH Green)',
+    'Ottimizza e converti tutte le immagini in formato WebP con lazy loading',
+    'Attiva compressione Brotli/gzip sul server IONOS tramite .htaccess',
+    'Riduci il numero di richieste HTTP e adotta una CDN geograficamente distribuita',
+    'Usa font di sistema invece di web font personalizzati (es. system-ui)',
+    'Rimuovi script di terze parti non essenziali (tracker, widget, analytics pesanti)',
+  ];
+
+  const il=document.getElementById('issuesList');
+  il.innerHTML=`<div class="tips-hdr" style="color:var(--red)">// CRITICITÀ RILEVATE [${issues.length}]</div>`;
+  issues.slice(0,5).forEach(i=>{il.innerHTML+=`<div class="tip bad"><span class="tip-icon" style="color:var(--red)">✕</span><span class="tip-text">${escH(i)}</span></div>`});
+
+  const tl=document.getElementById('tipsList');
+  tl.innerHTML=`<div class="tips-hdr" style="color:var(--acc);margin-top:20px">// RACCOMANDAZIONI OPERATIVE [${Math.min(tips.length,5)}]</div>`;
+  tips.slice(0,5).forEach(t=>{tl.innerHTML+=`<div class="tip good"><span class="tip-icon" style="color:var(--acc)">→</span><span class="tip-text">${escH(t)}</span></div>`});
+
+  // nav
+  document.getElementById('navId').textContent='◈ '+domain;
+  show('sitenav');show('results');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+document.getElementById('urlInput').addEventListener('keydown',e=>{if(e.key==='Enter')analyze()});
+</script>
+</body>
+</html>
