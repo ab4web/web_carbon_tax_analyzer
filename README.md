@@ -15,7 +15,6 @@ Fornire una pagina HTML minimale, ottimizzata per:
 
 ## 🌐 Versione online
 La pagina è pubblicata tramite **GitHub Pages** ed è accessibile qui:
-
 👉 https://ab4web.github.io/web_carbon_tax_analyzer/
 
 ## 🔗 Risorse correlate
@@ -25,6 +24,5 @@ Un portale ricco di approfondimenti su tecnologia, economia, innovazione e strum
 
 ## 📦 Utilizzo
 Puoi clonare o scaricare il repository:
-
 ```bash
 git clone https://github.com/ab4web/web_carbon_tax_analyzer
